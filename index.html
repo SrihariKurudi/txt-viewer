@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TXT Viewer & Instant Search</title>
+  <meta name="description" content="A fast, standalone viewer for large .txt files with instant search, highlights, and smooth UI. Host on GitHub Pages.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #0b1020;           /* dark gradient base */
+      --bg-2:#11192e;
+      --card:#111827;
+      --muted:#94a3b8;
+      --text:#e5e7eb;
+      --brand:#7c9cff;
+      --accent:#22d3ee;
+      --ring: 0 0 0 3px rgba(124,156,255,.35);
+      --border: rgba(148,163,184,.18);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,ui-sans-serif; color:var(--text); background: radial-gradient(1200px 800px at 20% -10%, #1d2b5a 0%, transparent 60%), radial-gradient(1600px 800px at 120% -20%, #0f172a 0%, transparent 55%), linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);}    
+    .container{max-width:1200px;margin:0 auto;padding:16px}
+    .app{display:grid;grid-template-rows:auto auto 1fr;gap:14px;min-height:100vh}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02)); border:1px solid var(--border); border-radius:18px; box-shadow:0 10px 30px rgba(2,6,23,.4);}
+    .toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px}
+    .brand{display:flex;gap:10px;align-items:center}
+    .logo{width:34px;height:34px;border-radius:10px;background:conic-gradient(from 180deg, var(--brand), #54ffe6,var(--brand)); box-shadow:0 4px 14px rgba(124,156,255,.45)}
+    .title{font-weight:700;letter-spacing:.3px}
+    .muted{color:var(--muted)}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{appearance:none;border:1px solid var(--border); background:#0b1222; color:var(--text); padding:10px 12px; border-radius:12px; font-weight:600; cursor:pointer; transition:.2s ease; box-shadow:0 2px 10px rgba(2,6,23,.35)}
+    .btn:hover{transform:translateY(-1px); border-color:#6b7280}
+    .btn:focus{outline:none; box-shadow:var(--ring)}
+    .btn.secondary{background:transparent}
+    .btn.small{padding:8px 10px;font-size:12.5px}
+
+    .searchbar{display:grid;grid-template-columns:1fr auto;gap:10px;padding:0 16px 12px}
+    .input{display:flex; align-items:center; background:#0b1222; border:1px solid var(--border); border-radius:14px; padding:10px 12px; gap:8px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+    .input input{flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:14px}
+    .toggles{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .toggle{display:flex; gap:6px; align-items:center; font-size:12.5px; background:#0b1222; border:1px solid var(--border); border-radius:12px; padding:8px 10px}
+    .toggle input{accent-color:var(--brand)}
+
+    .main{display:grid; grid-template-columns: 360px 1fr; gap:14px; padding:0 16px 16px}
+    @media (max-width: 900px){.main{grid-template-columns:1fr}}
+
+    .pane{min-height:60vh}
+    .pane h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.3px;text-transform:uppercase;color:#cbd5e1}
+    .pane-body{height:calc(100% - 46px); overflow:auto}
+
+    .results{list-style:none;margin:0;padding:0}
+    .result{padding:10px 12px; border-bottom:1px dashed rgba(148,163,184,.15); cursor:pointer}
+    .result:hover{background:rgba(124,156,255,.06)}
+    .result small{color:var(--muted)}
+
+    .viewer{padding:16px; overflow:auto}
+    .code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:13px; line-height:1.6; white-space:pre;}
+    .line{display:block; padding:0 8px; border-left:2px solid transparent}
+    .line:hover{background:rgba(124,156,255,.06)}
+    .ln{user-select:none; display:inline-block; width:56px; color:#94a3b8; opacity:.7}
+    mark{background:linear-gradient(180deg, rgba(124,156,255,.35), rgba(34,211,238,.35)); color:inherit; padding:.05rem .1rem; border-radius:6px}
+
+    .status{display:flex;align-items:center;gap:10px;padding:8px 16px;color:#cbd5e1;border-top:1px solid var(--border)}
+    .progress{height:8px;border-radius:999px;background:#0b1222;border:1px solid var(--border);overflow:hidden;flex:1}
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--brand),var(--accent));transition:width .25s ease}
+    .hidden{display:none!important}
+  </style>
+</head>
+<body>
+  <div class="container app">
+    <!-- Toolbar -->
+    <div class="card toolbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="title">TXT Viewer</div>
+          <div class="muted" style="font-size:12.5px">Host on GitHub Pages • Drop your .txt or place <code>data.txt</code> in the repo</div>
+        </div>
+      </div>
+      <div class="controls">
+        <label class="btn secondary" for="fileInput">📄 Load .txt</label>
+        <input id="fileInput" type="file" accept=".txt,text/plain" style="display:none" />
+        <button id="downloadBtn" class="btn small" title="Download current copy">Download</button>
+        <button id="themeBtn" class="btn small" title="Toggle theme">🌗 Theme</button>
+        <a class="btn small" id="rawBtn" href="data.txt" download style="text-decoration:none">Raw data.txt</a>
+      </div>
+    </div>
+
+    <!-- Search Row -->
+    <div class="searchbar">
+      <div class="input">
+        <span>🔎</span>
+        <input id="query" placeholder="Type to search… (supports regex: /pattern/)" autocomplete="off" />
+      </div>
+      <div class="toggles card" style="padding:10px 12px">
+        <label class="toggle"><input id="case" type="checkbox"/> Case sensitive</label>
+        <label class="toggle"><input id="whole" type="checkbox"/> Whole word</label>
+        <label class="toggle"><input id="regex" type="checkbox"/> Regex</label>
+        <label class="toggle"><input id="live" type="checkbox" checked/> Live search</label>
+        <button id="searchBtn" class="btn small">Search</button>
+        <span id="count" class="muted" style="margin-left:auto">0 results</span>
+      </div>
+    </div>
+
+    <!-- Main panes -->
+    <div class="main">
+      <div class="card pane">
+        <h3>Matches</h3>
+        <div class="pane-body">
+          <ul id="results" class="results"></ul>
+          <div id="loadMoreWrap" class="status hidden"><button id="loadMoreBtn" class="btn small" style="margin-left:auto">Load more</button></div>
+        </div>
+        <div class="status">
+          <div class="progress"><div id="progressBar" class="bar"></div></div>
+          <span id="statusText" style="font-size:12.5px">Idle</span>
+        </div>
+      </div>
+
+      <div class="card pane">
+        <h3>Viewer</h3>
+        <div id="viewer" class="pane-body viewer"><pre id="code" class="code"></pre></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // --- Utilities ---
+  const $ = sel => document.querySelector(sel);
+  const escapeHtml = (str) => str
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+
+  const debounce = (fn, ms=180) => {
+    let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args), ms); };
+  };
+
+  // --- State ---
+  let lines = [];           // ["line text", ...]
+  let matches = [];         // [{i,line,preview,start,end}, ...]
+  let loadedText = '';
+  const PAGE = 300;         // results per chunk in sidebar
+  let shown = 0;            // how many results currently rendered
+
+  // --- Elements ---
+  const fileInput = $('#fileInput');
+  const query = $('#query');
+  const resultsEl = $('#results');
+  const codeEl = $('#code');
+  const statusText = $('#statusText');
+  const bar = $('#progressBar');
+  const count = $('#count');
+  const loadMoreWrap = $('#loadMoreWrap');
+  const loadMoreBtn = $('#loadMoreBtn');
+
+  // --- Theme toggle ---
+  const themeBtn = $('#themeBtn');
+  themeBtn.addEventListener('click',()=>{
+    document.body.classList.toggle('light');
+  });
+  // Optional light theme override
+  const style = document.createElement('style');
+  style.textContent = `
+    body.light{ background:#f6f8ff; color:#0f172a }
+    body.light .card{ background:#fff; box-shadow:0 10px 30px rgba(15,23,42,.08) }
+    body.light .btn{ background:#f8fafc; color:#0f172a }
+    body.light .input{ background:#fff }
+    body.light .toggle{ background:#fff }
+    body.light .result:hover{ background:rgba(2,6,23,.06) }
+    body.light .viewer{ background:#fff }
+    body.light .line:hover{ background:rgba(2,6,23,.06) }
+    body.light .muted{ color:#475569 }
+  `;
+  document.head.appendChild(style);
+
+  // --- Loaders ---
+  async function loadFromUrl(url){
+    setStatus('Loading '+url+' …');
+    bar.style.width = '25%';
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Failed to fetch '+url);
+    const txt = await res.text();
+    bar.style.width = '60%';
+    setText(txt);
+    bar.style.width = '100%';
+    setTimeout(()=> bar.style.width = '0%', 600);
+    setStatus('Loaded '+(txt.length).toLocaleString()+' chars');
+  }
+
+  function setText(txt){
+    loadedText = txt || '';
+    // normalize newlines and split
+    lines = loadedText.replace(/\r\n?/g, '\n').split('\n');
+    // render viewer
+    const html = lines.map((line,idx)=> `<span class="line" id="l${idx+1}"><span class="ln">${(idx+1).toString().padStart(5,' ')} │</span> ${escapeHtml(line)}</span>`).join('\n');
+    codeEl.innerHTML = html;
+    // reset matches
+    matches=[]; shown=0; resultsEl.innerHTML=''; updateCount(); loadMoreWrap.classList.add('hidden');
+  }
+
+  // --- Search ---
+  function buildRegex(q, {caseSensitive, wholeWord, isRegex}){
+    if(!q) return null;
+    let source = q;
+    if(isRegex && q.startsWith('/') && q.lastIndexOf('/')>0){
+      // allow /pattern/ style
+      const last = q.lastIndexOf('/');
+      source = q.slice(1,last);
+    } else if(!isRegex){
+      source = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    if(wholeWord) source = `(?<!\w)${source}(?!\w)`;
+    try{
+      const flags = caseSensitive ? 'g' : 'gi';
+      return new RegExp(source, flags);
+    }catch(e){
+      console.warn('Bad regex', e); return null;
+    }
+  }
+
+  function doSearch(){
+    const q = query.value.trim();
+    const rx = buildRegex(q, {
+      caseSensitive: $('#case').checked,
+      wholeWord: $('#whole').checked,
+      isRegex: $('#regex').checked,
+    });
+    resultsEl.innerHTML=''; matches=[]; shown=0; updateCount(); loadMoreWrap.classList.add('hidden');
+    if(!rx || !q){ setStatus('Ready'); highlightAll(null); return; }
+
+    setStatus('Searching…');
+    const localMatches = [];
+    for(let i=0;i<lines.length;i++){
+      const line = lines[i];
+      let m;
+      rx.lastIndex = 0;
+      if(rx.test(line)){
+        // collect first match positions for preview
+        rx.lastIndex = 0;
+        const spans = [];
+        while((m = rx.exec(line))){
+          spans.push({start:m.index, end:m.index + (m[0]?.length || 0)});
+          if(spans.length>20) break; // cap per-line
+        }
+        localMatches.push({i:i+1, line, spans});
+      }
+    }
+    matches = localMatches;
+    updateCount();
+    renderChunk();
+    highlightAll(rx);
+    setStatus('Found '+matches.length.toLocaleString()+' matches');
+  }
+
+  function updateCount(){
+    count.textContent = `${matches.length.toLocaleString()} results`;
+  }
+
+  function renderChunk(){
+    const slice = matches.slice(shown, shown+PAGE);
+    for(const {i,line,spans} of slice){
+      const preview = buildPreview(line, spans);
+      const li = document.createElement('li');
+      li.className='result';
+      li.innerHTML = `<div><strong>#${i}</strong> ${preview}</div><small>Line ${i}</small>`;
+      li.addEventListener('click',()=> scrollToLine(i, spans?.[0]));
+      resultsEl.appendChild(li);
+    }
+    shown += slice.length;
+    if(shown < matches.length){
+      loadMoreWrap.classList.remove('hidden');
+    } else {
+      loadMoreWrap.classList.add('hidden');
+    }
+  }
+
+  function buildPreview(line, spans){
+    const WINDOW = 40; // chars around match
+    if(!spans || spans.length===0) return escapeHtml(line.slice(0,120));
+    const {start,end} = spans[0];
+    const from = Math.max(0, start - WINDOW);
+    const to   = Math.min(line.length, end + WINDOW);
+    const before = escapeHtml(line.slice(from, start));
+    const mid    = escapeHtml(line.slice(start, end));
+    const after  = escapeHtml(line.slice(end, to));
+    const ellipsesL = from>0 ? '…' : '';
+    const ellipsesR = to<line.length ? '…' : '';
+    return `${ellipsesL}${before}<mark>${mid}</mark>${after}${ellipsesR}`;
+  }
+
+  function highlightAll(rx){
+    // remove previous marks quickly by resetting to original then reapply if rx
+    if(!rx){
+      // reset to plain
+      const html = lines.map((line,idx)=> `<span class="line" id="l${idx+1}"><span class="ln">${(idx+1).toString().padStart(5,' ')} │</span> ${escapeHtml(line)}</span>`).join('\n');
+      codeEl.innerHTML = html;
+      return;
+    }
+    // Efficient per-line replace
+    const frag = document.createDocumentFragment();
+    for(let i=0;i<lines.length;i++){
+      const line = lines[i];
+      let last = 0; let out = '';
+      rx.lastIndex = 0; let m;
+      while((m = rx.exec(line))){
+        const s = m.index, e = m.index + (m[0]?.length || 0);
+        out += escapeHtml(line.slice(last, s)) + '<mark>' + escapeHtml(line.slice(s,e)) + '</mark>';
+        last = e;
+        if(out.length > 24000) { // guard against pathological lines
+          out += escapeHtml(line.slice(last));
+          break;
+        }
+      }
+      if(last < line.length) out += escapeHtml(line.slice(last));
+      const span = document.createElement('span');
+      span.className='line';
+      span.id = 'l'+(i+1);
+      span.innerHTML = `<span class="ln">${(i+1).toString().padStart(5,' ')} │</span> ${out}`;
+      frag.appendChild(span);
+      if(i % 500 === 0){ /* yield */ }
+    }
+    codeEl.innerHTML = '';
+    codeEl.appendChild(frag);
+  }
+
+  function scrollToLine(n, firstSpan){
+    const el = document.getElementById('l'+n);
+    if(!el) return;
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    el.style.borderLeftColor = 'var(--accent)';
+    setTimeout(()=> el.style.borderLeftColor='transparent', 900);
+  }
+
+  function setStatus(t){ statusText.textContent = t; }
+
+  // --- Events ---
+  const runSearch = debounce(doSearch, 120);
+  query.addEventListener('input', ()=> $('#live').checked && runSearch());
+  $('#searchBtn').addEventListener('click', doSearch);
+  ['case','whole','regex'].forEach(id=> $('#'+id).addEventListener('change', ()=> $('#live').checked && runSearch()));
+  loadMoreBtn.addEventListener('click', renderChunk);
+
+  // File open
+  fileInput.addEventListener('change', async (e)=>{
+    const f = e.target.files?.[0]; if(!f) return;
+    const txt = await f.text(); setText(txt);
+  });
+
+  // Download current text
+  $('#downloadBtn').addEventListener('click', ()=>{
+    const blob = new Blob([loadedText], {type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'export.txt'; a.click(); URL.revokeObjectURL(a.href);
+  });
+
+  // --- Init ---
+  (async function init(){
+    // Try to load bundled data.txt (placed in same folder)
+    try{
+      await loadFromUrl('data.txt');
+    } catch (e){
+      setStatus('Tip: Place data.txt in this folder or click “Load .txt”');
+      setText('');
+    }
+  })();
+</script>
+</body>
+</html>
